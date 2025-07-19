@@ -1,8 +1,24 @@
-from google import genai
 import os
+import ssl
+import certifi
+
+# Переопределяем ssl.create_default_context так, чтобы он не вызывал load_default_certs
+_orig_create_default_context = ssl.create_default_context
+
+def patched_create_default_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=None, capath=None, cadata=None):
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.load_verify_locations(cafile=certifi.where())
+    return context
+
+ssl.create_default_context = patched_create_default_context
+
+from google import genai
 import logging
 import json
 from datetime import datetime
+import dotenv
+
+dotenv.load_dotenv() # Загружает переменные из .env файла
 
 # Configure logging
 log_directory = os.getenv("LOG_DIR", "logs")
@@ -58,7 +74,7 @@ def call_llm(prompt: str, use_cache: bool = True) -> str:
     client = genai.Client(
         api_key=os.getenv("GEMINI_API_KEY", ""),
     )
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro-exp-03-25")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
     # model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-04-17")
     
     response = client.models.generate_content(model=model, contents=[prompt])
